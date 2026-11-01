@@ -314,6 +314,18 @@
     <div class="section-title">Réconciliations</div>
     <div id="reconList"></div>
 
+    <div class="section-title">🔀 Réaffectations entre lignes</div>
+    <div id="divertMonth"></div>
+    <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <span>Tendance des réaffectations</span>
+      <select id="divertPeriod" onchange="renderDivertTrend()" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:5px 8px;font-size:12px;font-weight:700">
+        <option value="3">3 derniers mois</option>
+        <option value="6" selected>6 derniers mois</option>
+        <option value="12">12 derniers mois</option>
+      </select>
+    </div>
+    <div id="divertTrend"></div>
+
     <div class="section-title">Budget épuisé</div>
     <div id="exhaustedList"></div>
 
@@ -383,7 +395,9 @@
       </div>
       <div class="field"><label>Date</label><input type="date" id="txDate"></div>
       <div class="field"><label>Montant (FCFA)</label><input type="number" id="txAmount" placeholder="0" inputmode="numeric"></div>
-      <div class="field"><label>Catégorie</label><select id="txCategory"></select></div>
+      <div class="field"><label>Catégorie (usage réel)</label><select id="txCategory"></select></div>
+      <div class="field"><label>🔀 Payé avec le budget de… (optionnel)</label><select id="txCatBudget"></select>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:4px">À remplir seulement si tu as pris l'argent d'une autre ligne budgétaire.</div></div>
       <div class="field"><label>💳 Portefeuille réel</label><select id="txWallet"></select></div>
       <div class="field"><label>🎯 Portefeuille budgété (optionnel)</label><select id="txWalletBudget"></select></div>
       <div class="field"><label>Description (optionnel)</label><textarea id="txDesc" placeholder="Ex: courses de la semaine"></textarea></div>
@@ -506,24 +520,61 @@
       <button class="modal-close-x" onclick="closeModal('modalPortfolioDetail')">✕</button>
       <div class="modal-handle"></div>
       <div id="portfolioDetailContent"></div>
-      <div class="section-title" style="margin-top:0">Versement / Retrait</div>
+
+      <div class="section-title">Positions</div>
+      <div id="pfPositionsList"></div>
+
+      <div id="pfPriceBlock">
+        <div class="section-title">🔄 Mettre à jour les cours</div>
+        <div class="field"><label>Date des cours</label><input type="date" id="pfPriceDate"></div>
+        <div id="pfPriceInputs"></div>
+        <button class="btn btn-outline" onclick="savePortfolioPrices()">🔄 Enregistrer les cours</button>
+      </div>
+
+      <div class="section-title">➕ Nouvelle opération</div>
+      <div class="form-row">
+        <div class="field" style="margin-bottom:0"><label>Date</label><input type="date" id="pfOpDate"></div>
+        <div class="field" style="margin-bottom:0"><label>Type</label><select id="pfOpType" onchange="updatePfOpForm()">
+          <option value="achat">🟢 Achat</option>
+          <option value="vente">🔴 Vente</option>
+          <option value="dividende">💰 Dividende</option>
+          <option value="frais">🧾 Frais / taxes</option>
+          <option value="initial">📌 Position initiale</option>
+        </select></div>
+      </div>
+      <div class="field" id="pfOpTickerField"><label>Action (symbole)</label><input type="text" id="pfOpTicker" list="pfTickerList" placeholder="Ex: SNTS, SGBC, ORAC" style="text-transform:uppercase"><datalist id="pfTickerList"></datalist></div>
+      <div class="field" id="pfOpNameField"><label>Nom de la société (optionnel)</label><input type="text" id="pfOpName" placeholder="Ex: Sonatel"></div>
+      <div class="form-row" id="pfOpQtyRow">
+        <div class="field" style="margin-bottom:0"><label>Quantité</label><input type="number" id="pfOpQty" placeholder="0" inputmode="numeric"></div>
+        <div class="field" style="margin-bottom:0"><label id="pfOpPriceLabel">Prix unitaire</label><input type="number" id="pfOpPrice" placeholder="0" inputmode="decimal"></div>
+      </div>
+      <div class="field" id="pfOpFeesField"><label>Frais / commissions (FCFA)</label><input type="number" id="pfOpFees" placeholder="0" inputmode="numeric"></div>
+      <div class="field" id="pfOpAmountField" style="display:none"><label id="pfOpAmountLabel">Montant net encaissé (FCFA)</label><input type="number" id="pfOpAmount" placeholder="0" inputmode="numeric"></div>
+      <div id="pfOpHint" style="font-size:11.5px;color:var(--text-dim);margin:-4px 0 10px"></div>
+      <button class="btn btn-accent" onclick="savePortfolioOperation()">+ Enregistrer l'opération</button>
+
+      <div class="section-title">💵 Versement / Retrait d'argent</div>
       <div class="form-row">
         <div class="field" style="margin-bottom:0"><label>Date</label><input type="date" id="pfContribDate"></div>
-        <div class="field" style="margin-bottom:0"><label>Type</label><select id="pfContribType">
+        <div class="field" style="margin-bottom:0"><label>Type</label><select id="pfContribType" onchange="updatePfContribForm()">
           <option value="versement">Versement</option>
           <option value="retrait">Retrait</option>
         </select></div>
       </div>
       <div class="field"><label>Montant (FCFA)</label><input type="number" id="pfContribAmount" placeholder="0"></div>
-      <div class="field"><label>Note (optionnel)</label><input type="text" id="pfContribNote" placeholder="Ex: achat actions"></div>
+      <div class="field" id="pfContribDestField" style="display:none"><label>Où va l'argent retiré ?</label><select id="pfContribDest"></select></div>
+      <div class="field"><label>Note (optionnel)</label><input type="text" id="pfContribNote" placeholder="Ex: virement depuis UBA"></div>
       <button class="btn btn-accent" onclick="savePortfolioContribution()">+ Enregistrer</button>
 
-      <div class="section-title">Mettre à jour la valeur actuelle</div>
-      <div class="form-row">
-        <div class="field" style="margin-bottom:0"><label>Date</label><input type="date" id="pfValDate"></div>
-        <div class="field" style="margin-bottom:0"><label>Valeur actuelle (FCFA)</label><input type="number" id="pfValAmount" placeholder="0"></div>
+      <div id="pfLegacyValBlock">
+        <div class="section-title">Mettre à jour la valeur globale (mode simple)</div>
+        <div class="form-row">
+          <div class="field" style="margin-bottom:0"><label>Date</label><input type="date" id="pfValDate"></div>
+          <div class="field" style="margin-bottom:0"><label>Valeur actuelle (FCFA)</label><input type="number" id="pfValAmount" placeholder="0"></div>
+        </div>
+        <button class="btn btn-outline" onclick="savePortfolioValuation()">🔄 Mettre à jour la valeur</button>
+        <div style="font-size:11.5px;color:var(--text-dim);margin-top:6px">Dès que tu enregistres des positions, la valeur est calculée automatiquement à partir des cours.</div>
       </div>
-      <button class="btn btn-outline" onclick="savePortfolioValuation()">🔄 Mettre à jour la valeur</button>
 
       <div class="section-title">Historique</div>
       <div id="portfolioHistoryList"></div>
@@ -918,8 +969,23 @@ function totalBudget(){
   for(var c in state.budget){ total += Number(state.budget[c]) || 0; }
   return total;
 }
+function txCatBudget(t){ return t.cat_budget || t.category; }
+// Consommation de l'enveloppe budgétaire : la ligne qui a PAYÉ
 function catSpent(catId){
+  return state.txs.filter(function(t){ return txCatBudget(t) === catId; }).reduce(function(s,t){ return s + (Number(t.amount)||0); }, 0);
+}
+// Dépense par USAGE réel (nature de la dépense)
+function catSpentNature(catId){
   return state.txs.filter(function(t){ return t.category === catId; }).reduce(function(s,t){ return s + (Number(t.amount)||0); }, 0);
+}
+function isDiverted(t){ return t.cat_budget && t.cat_budget !== t.category; }
+// Argent de catId utilisé pour d'autres lignes
+function catDivertedOut(catId, txs){
+  return (txs||state.txs).filter(function(t){ return isDiverted(t) && t.cat_budget === catId; }).reduce(function(s,t){ return s + (Number(t.amount)||0); }, 0);
+}
+// Dépenses de catId financées par d'autres lignes
+function catDivertedIn(catId, txs){
+  return (txs||state.txs).filter(function(t){ return isDiverted(t) && t.category === catId; }).reduce(function(s,t){ return s + (Number(t.amount)||0); }, 0);
 }
 function catBudgetAmt(catId){ return Number(state.budget[catId]) || 0; }
 function walletSpentReal(walletId){
@@ -964,10 +1030,59 @@ function totalAccounts(){
   return state.patrimoine.accounts.reduce(function(s,a){ return s + accountBalance(a); }, 0);
 }
 
+function pfHasTrades(p){ return (p.trades||[]).length > 0; }
+// Moteur de calcul : rejoue toutes les opérations dans l'ordre chronologique
+function portfolioStats(p){
+  var contrib = 0;
+  (p.contributions||[]).forEach(function(c){ contrib += Number(c.amount)||0; });
+  var pos = {}, cash = contrib, initial = 0, realized = 0, dividends = 0, fees = 0;
+  var trades = (p.trades||[]).slice().sort(function(a,b){ return (a.date||'').localeCompare(b.date||'') || (''+a.id).localeCompare(''+b.id); });
+  function P(t){ var k = (t||'').toUpperCase(); if(!pos[k]) pos[k] = {ticker:k, name:'', qty:0, cost:0, realized:0, dividends:0}; return pos[k]; }
+  trades.forEach(function(t){
+    var q = Number(t.qty)||0, pr = Number(t.price)||0, f = Number(t.fees)||0;
+    if(t.type === 'initial'){
+      var x = P(t.ticker); x.qty += q; x.cost += q*pr; if(t.name) x.name = t.name; initial += q*pr;
+    } else if(t.type === 'achat'){
+      var x = P(t.ticker); x.qty += q; x.cost += q*pr + f; if(t.name) x.name = t.name; cash -= q*pr + f; fees += f;
+    } else if(t.type === 'vente'){
+      var x = P(t.ticker); var pru = x.qty > 0 ? x.cost/x.qty : 0; var qs = Math.min(q, x.qty);
+      var gain = q*pr - f - qs*pru; x.realized += gain; realized += gain;
+      x.cost -= qs*pru; x.qty -= qs; if(x.qty <= 0){ x.qty = 0; x.cost = 0; }
+      cash += q*pr - f; fees += f;
+    } else if(t.type === 'dividende'){
+      var a = Number(t.amount)||0; dividends += a; cash += a;
+      if(t.ticker){ P(t.ticker).dividends += a; }
+    } else if(t.type === 'frais'){
+      var a = Number(t.amount)||0; fees += a; cash -= a;
+    }
+  });
+  var prices = p.prices || {};
+  var positions = Object.keys(pos).map(function(k){
+    var x = pos[k]; var pr = prices[k] || null;
+    x.pru = x.qty > 0 ? x.cost/x.qty : 0;
+    x.price = pr ? Number(pr.price)||0 : x.pru;
+    x.priceDate = pr ? pr.date : null;
+    x.value = x.qty * x.price;
+    x.latent = x.value - x.cost;
+    x.latentPct = x.cost > 0 ? x.latent/x.cost*100 : 0;
+    return x;
+  });
+  var mv = positions.reduce(function(s,x){ return s + x.value; }, 0);
+  var cost = positions.reduce(function(s,x){ return s + x.cost; }, 0);
+  var invested = contrib + initial;
+  var value = mv + cash;
+  return { contrib:contrib, initial:initial, invested:invested, cash:cash, marketValue:mv, costBasis:cost,
+    latent:mv-cost, realized:realized, dividends:dividends, fees:fees, value:value, perf:value-invested,
+    perfPct: invested>0 ? (value-invested)/invested*100 : 0,
+    positions: positions.filter(function(x){ return x.qty > 0; }).sort(function(a,b){ return b.value-a.value; }),
+    closed: positions.filter(function(x){ return x.qty <= 0; }) };
+}
 function portfolioInvested(p){
+  if(pfHasTrades(p)) return portfolioStats(p).invested;
   return (p.contributions||[]).reduce(function(s,c){ return s + (Number(c.amount)||0); }, 0);
 }
 function portfolioValue(p){
+  if(pfHasTrades(p)) return portfolioStats(p).value;
   var vals = (p.valuations||[]).slice().sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
   if(vals.length) return Number(vals[vals.length-1].value) || 0;
   return portfolioInvested(p);
@@ -1116,6 +1231,14 @@ function renderCatList(){
       html += '<div class="cat-row">';
       html += '<div class="cat-row-top"><div class="cat-row-name">'+c.emoji+' '+c.name+'</div><div class="cat-row-amt"><b>'+fmtShort(s)+'</b> / '+fmtShort(b)+' FCFA</div></div>';
       html += '<div class="progress-bar thin"><div class="fill" style="width:'+Math.min(pct,100)+'%;background:'+progressColor(pct)+'"></div></div>';
+      var dOut = catDivertedOut(c.id), dIn = catDivertedIn(c.id);
+      if(dOut > 0 || dIn > 0){
+        html += '<div style="font-size:11px;margin-top:5px;color:var(--orange)">';
+        if(dOut > 0) html += '🔀 dont '+fmtShort(dOut)+' utilisés pour d\'autres lignes';
+        if(dOut > 0 && dIn > 0) html += ' · ';
+        if(dIn > 0) html += '➕ '+fmtShort(dIn)+' payés par d\'autres lignes';
+        html += '</div>';
+      }
       if(badges.length){
         html += '<div class="wallet-badges">'+badges.map(function(w){ return '<span class="wbadge" style="background:'+w.color+'">'+w.emoji+' '+w.name+'</span>'; }).join('')+'</div>';
       }
@@ -1135,6 +1258,10 @@ function renderTxRow(tx, showActions){
   if(tx.desc) html += '<div class="tx-desc">'+escapeHtml(tx.desc)+'</div>';
   html += '<div class="tx-badges"><span class="wbadge" style="background:'+wallet.color+'">'+wallet.emoji+' '+wallet.name+'</span>';
   if(walletBudget) html += '<span class="wbadge" style="background:var(--blue)">🎯 '+walletBudget.emoji+' '+walletBudget.name+'</span>';
+  if(isDiverted(tx)){
+    var cb = CATEGORIES[tx.cat_budget] || {name:tx.cat_budget, emoji:''};
+    html += '<span class="wbadge" style="background:var(--orange)">🔀 payé par '+cb.emoji+' '+cb.name+'</span>';
+  }
   html += '</div></div>';
   html += '<div class="tx-right"><div class="tx-amount neg">-'+fmtShort(tx.amount)+'</div><div class="tx-date">'+formatDateFr(tx.date)+'</div>';
   if(showActions){
@@ -1185,13 +1312,15 @@ function renderAnalyse(){
   renderRings();
   renderWalletSolde();
   renderReconciliations();
+  renderDivertMonth();
+  renderDivertTrend();
   renderExhaustedAndNoBudget();
   renderGroupBars();
 }
 
 function renderCharts(){
   var catData = Object.keys(CATEGORIES).map(function(id){
-    return {id:id, name:CATEGORIES[id].emoji+' '+CATEGORIES[id].name, amt:catSpent(id)};
+    return {id:id, name:CATEGORIES[id].emoji+' '+CATEGORIES[id].name, amt:catSpentNature(id)};
   }).filter(function(c){ return c.amt > 0; }).sort(function(a,b){ return b.amt - a.amt; }).slice(0,8);
 
   var barCtx = document.getElementById('barChart').getContext('2d');
@@ -1295,6 +1424,101 @@ function renderReconciliations(){
       '<div>'+wReal.emoji+' '+wReal.name+' → imputé sur '+wBudget.emoji+' '+wBudget.name+' · '+formatDateFr(t.date)+'</div></div>';
   }).join('');
   document.getElementById('reconList').innerHTML = html;
+}
+
+/* =====================================================================
+   RÉAFFECTATIONS ENTRE LIGNES BUDGÉTAIRES
+===================================================================== */
+function catLabel(id){ var c = CATEGORIES[id] || {name:id, emoji:'❓'}; return c.emoji+' '+c.name; }
+
+function divertPairs(txs){
+  var map = {};
+  txs.filter(isDiverted).forEach(function(t){
+    var k = t.cat_budget + '>' + t.category;
+    if(!map[k]) map[k] = {from:t.cat_budget, to:t.category, amt:0, n:0};
+    map[k].amt += Number(t.amount)||0; map[k].n++;
+  });
+  return Object.keys(map).map(function(k){ return map[k]; }).sort(function(a,b){ return b.amt - a.amt; });
+}
+
+function renderDivertMonth(){
+  var el = document.getElementById('divertMonth');
+  var pairs = divertPairs(state.txs);
+  if(!pairs.length){ el.innerHTML = '<div class="empty-state">Aucune réaffectation ce mois-ci</div>'; return; }
+  var total = pairs.reduce(function(s,p){ return s + p.amt; }, 0);
+  var html = '<div class="card" style="margin-bottom:10px;font-size:12.5px"><b>'+fmt(total)+'</b> dépensés avec l\'argent d\'une autre ligne ce mois-ci</div>';
+  html += pairs.map(function(p){
+    return '<div class="recon-row"><div class="top"><span>'+catLabel(p.from)+' → '+catLabel(p.to)+'</span><span style="color:var(--orange)">'+fmt(p.amt)+'</span></div>'+
+      '<div>'+p.n+' transaction'+(p.n>1?'s':'')+' · budget de '+catLabel(p.from)+' : '+fmt(catBudgetAmt(p.from))+'</div></div>';
+  }).join('');
+  el.innerHTML = html;
+}
+
+function renderDivertTrend(){
+  var el = document.getElementById('divertTrend');
+  var sel = document.getElementById('divertPeriod');
+  var N = sel ? Number(sel.value) : 6;
+  var months = [];
+  for(var i = 0; i < N; i++){
+    var d = new Date(state.year, state.month - i, 1);
+    var y = d.getFullYear(), m = d.getMonth();
+    var txs = getData('budgetguy_'+y+'_'+m+'_txs') || [];
+    var budget = getData('budgetguy_'+y+'_'+m+'_budget') || {};
+    if(txs.length || Object.keys(budget).length) months.push({y:y, m:m, txs:txs, budget:budget});
+  }
+  if(!months.length){ el.innerHTML = '<div class="empty-state">Pas encore assez de données</div>'; return; }
+  var nM = months.length;
+  var stats = {};
+  function st(id){ if(!stats[id]) stats[id] = {id:id, budget:0, out:0, inn:0, mOut:0, mIn:0}; return stats[id]; }
+  var allTx = [];
+  months.forEach(function(mo){
+    for(var c in mo.budget) st(c).budget += Number(mo.budget[c])||0;
+    var seenOut = {}, seenIn = {};
+    mo.txs.filter(isDiverted).forEach(function(t){
+      var a = Number(t.amount)||0;
+      st(t.cat_budget).out += a; seenOut[t.cat_budget] = 1;
+      st(t.category).inn += a; seenIn[t.category] = 1;
+    });
+    Object.keys(seenOut).forEach(function(c){ st(c).mOut++; });
+    Object.keys(seenIn).forEach(function(c){ st(c).mIn++; });
+    allTx = allTx.concat(mo.txs);
+  });
+  var recurrent = Math.max(2, Math.ceil(nM/2)); // au moins la moitié des mois (min. 2)
+  var donors = Object.keys(stats).map(function(k){ return stats[k]; }).filter(function(x){ return x.out > 0; }).sort(function(a,b){ return b.out - a.out; });
+  var receivers = Object.keys(stats).map(function(k){ return stats[k]; }).filter(function(x){ return x.inn > 0; }).sort(function(a,b){ return b.inn - a.inn; });
+  var first = months[nM-1], last = months[0];
+  var html = '<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:8px">Période analysée : '+MONTH_SHORT[first.m]+' '+first.y+' → '+MONTH_SHORT[last.m]+' '+last.y+' ('+nM+' mois avec données)</div>';
+
+  if(!donors.length){
+    el.innerHTML = html + '<div class="empty-state">Aucune réaffectation sur la période 👍</div>';
+    return;
+  }
+
+  html += '<div style="font-weight:700;font-size:12.5px;margin:6px 0">📤 Lignes dont l\'argent part ailleurs</div>';
+  html += donors.map(function(x){
+    var pct = x.budget > 0 ? Math.round(x.out/x.budget*100) : null;
+    var flag = x.mOut >= recurrent;
+    return '<div class="recon-row" style="'+(flag?'border-color:var(--orange)':'')+'"><div class="top"><span>'+(flag?'🚩 ':'')+catLabel(x.id)+'</span><span style="color:var(--orange)">'+fmt(x.out)+'</span></div>'+
+      '<div>'+x.mOut+' mois sur '+nM+' · '+(pct!==null ? pct+'% du budget de la ligne réaffecté' : 'ligne sans budget')+'</div>'+
+      (flag ? '<div style="margin-top:4px;color:var(--orange)">→ Ligne probablement sur-budgétée : envisage de réduire son budget d\'environ '+fmt(x.out/nM)+'/mois.</div>' : '')+
+      '</div>';
+  }).join('');
+
+  html += '<div style="font-weight:700;font-size:12.5px;margin:12px 0 6px">📥 Lignes qui consomment l\'argent des autres</div>';
+  html += receivers.map(function(x){
+    var flag = x.mIn >= recurrent;
+    return '<div class="recon-row" style="'+(flag?'border-color:var(--blue)':'')+'"><div class="top"><span>'+(flag?'⚠️ ':'')+catLabel(x.id)+'</span><span style="color:var(--blue)">'+fmt(x.inn)+'</span></div>'+
+      '<div>'+x.mIn+' mois sur '+nM+' · budget cumulé : '+fmt(x.budget)+'</div>'+
+      (flag ? '<div style="margin-top:4px;color:var(--blue)">→ Ligne probablement sous-budgétée : envisage d\'augmenter son budget d\'environ '+fmt(x.inn/nM)+'/mois.</div>' : '')+
+      '</div>';
+  }).join('');
+
+  var pairs = divertPairs(allTx).slice(0,5);
+  html += '<div style="font-weight:700;font-size:12.5px;margin:12px 0 6px">🔁 Flux les plus fréquents</div>';
+  html += pairs.map(function(p){
+    return '<div class="recon-row"><div class="top"><span>'+catLabel(p.from)+' → '+catLabel(p.to)+'</span><span>'+fmt(p.amt)+'</span></div><div>'+p.n+' transaction'+(p.n>1?'s':'')+' · moyenne '+fmt(p.amt/nM)+'/mois</div></div>';
+  }).join('');
+  el.innerHTML = html;
 }
 
 function renderExhaustedAndNoBudget(){
@@ -1444,9 +1668,15 @@ function renderPortfoliosList(){
     var invested = portfolioInvested(p);
     var gain = val - invested;
     var gainPct = invested>0 ? (gain/invested*100) : 0;
+    var sub = 'Investi: '+fmtShort(invested)+' FCFA';
+    if(pfHasTrades(p)){
+      var st = portfolioStats(p);
+      sub += ' · '+st.positions.length+' ligne'+(st.positions.length>1?'s':'');
+      if(st.dividends > 0) sub += ' · Div. '+fmtShort(st.dividends);
+    }
     return '<div class="list-row" onclick="openPortfolioDetail(\''+p.id+'\')">' +
       '<div class="lr-main"><div class="lr-name">'+escapeHtml(p.name)+'</div>' +
-      '<div class="lr-sub">Investi: '+fmtShort(invested)+' FCFA</div></div>' +
+      '<div class="lr-sub">'+sub+'</div></div>' +
       '<div class="lr-right"><div class="lr-amount">'+fmtShort(val)+'</div>' +
       '<div class="lr-sub '+(gain>=0?'pos':'neg')+'">'+(gain>=0?'+':'')+fmtShort(gain)+' ('+gainPct.toFixed(1)+'%)</div></div></div>';
   }).join('');
@@ -1531,6 +1761,7 @@ function populateSelects(){
     optHtml += '</optgroup>';
   });
   catSelect.innerHTML = optHtml;
+  document.getElementById('txCatBudget').innerHTML = '<option value="">— même catégorie —</option>' + optHtml;
 
   var walletOpts = WALLETS.map(function(w){ return '<option value="'+w.id+'">'+w.emoji+' '+w.name+'</option>'; }).join('');
   document.getElementById('txWallet').innerHTML = walletOpts;
@@ -1562,6 +1793,7 @@ function openTxModal(txId){
     document.getElementById('txDate').value = tx.date;
     document.getElementById('txAmount').value = tx.amount;
     document.getElementById('txCategory').value = tx.category;
+    document.getElementById('txCatBudget').value = isDiverted(tx) ? tx.cat_budget : '';
     document.getElementById('txWallet').value = tx.wallet;
     document.getElementById('txWalletBudget').value = tx.wallet_budget && tx.wallet_budget !== tx.wallet ? tx.wallet_budget : '';
     document.getElementById('txDesc').value = tx.desc || '';
@@ -1572,6 +1804,7 @@ function openTxModal(txId){
     document.getElementById('txDate').value = todayStr();
     document.getElementById('txAmount').value = '';
     document.getElementById('txCategory').selectedIndex = 0;
+    document.getElementById('txCatBudget').selectedIndex = 0;
     document.getElementById('txWallet').selectedIndex = 0;
     document.getElementById('txWalletBudget').selectedIndex = 0;
     document.getElementById('txDesc').value = '';
@@ -1583,6 +1816,8 @@ function openTxModal(txId){
 function saveTx(){
   var amount = Number(document.getElementById('txAmount').value);
   var category = document.getElementById('txCategory').value;
+  var catBudget = document.getElementById('txCatBudget').value;
+  if(catBudget === category) catBudget = '';
   var wallet = document.getElementById('txWallet').value;
   var walletBudget = document.getElementById('txWalletBudget').value || wallet;
   var date = document.getElementById('txDate').value || todayStr();
@@ -1596,6 +1831,7 @@ function saveTx(){
     if(tx){
       tx.amount = amount; tx.category = category; tx.wallet = wallet;
       tx.wallet_budget = walletBudget; tx.date = date; tx.desc = desc;
+      if(catBudget) tx.cat_budget = catBudget; else delete tx.cat_budget;
     }
   } else {
     state.txs.push({
@@ -1606,6 +1842,7 @@ function saveTx(){
       category: category,
       wallet: wallet,
       wallet_budget: walletBudget,
+      cat_budget: catBudget || undefined,
       desc: desc
     });
   }
@@ -1988,43 +2225,210 @@ function saveNewInsurance(){
 ===================================================================== */
 function openPortfolioDetail(id){
   state.activePatrimoineId = id;
-  document.getElementById('pfContribDate').value = todayStr();
+  var p = portfolioById(id);
+  if(p && !p.trades) p.trades = [];
+  if(p && !p.prices) p.prices = {};
+  ['pfContribDate','pfValDate','pfOpDate','pfPriceDate'].forEach(function(f){ document.getElementById(f).value = todayStr(); });
   document.getElementById('pfContribType').value = 'versement';
-  document.getElementById('pfContribAmount').value = '';
-  document.getElementById('pfContribNote').value = '';
-  document.getElementById('pfValDate').value = todayStr();
-  document.getElementById('pfValAmount').value = '';
+  ['pfContribAmount','pfContribNote','pfValAmount'].forEach(function(f){ document.getElementById(f).value = ''; });
+  document.getElementById('pfOpType').value = 'achat';
+  resetPfOpForm();
+  updatePfOpForm();
+  updatePfContribForm();
   renderPortfolioDetailContent();
   openModal('modalPortfolioDetail');
 }
+function resetPfOpForm(){
+  ['pfOpTicker','pfOpName','pfOpQty','pfOpPrice','pfOpFees','pfOpAmount'].forEach(function(f){ document.getElementById(f).value = ''; });
+}
+function updatePfOpForm(){
+  var t = document.getElementById('pfOpType').value;
+  var show = function(id, on){ document.getElementById(id).style.display = on ? '' : 'none'; };
+  show('pfOpTickerField', t !== 'frais');
+  show('pfOpNameField', t === 'achat' || t === 'initial');
+  show('pfOpQtyRow', t === 'achat' || t === 'vente' || t === 'initial');
+  show('pfOpFeesField', t === 'achat' || t === 'vente');
+  show('pfOpAmountField', t === 'dividende' || t === 'frais');
+  document.getElementById('pfOpPriceLabel').textContent = t === 'initial' ? 'Prix de revient moyen (PRU)' : 'Prix unitaire';
+  document.getElementById('pfOpAmountLabel').textContent = t === 'frais' ? 'Montant des frais (FCFA)' : 'Montant net encaissé (FCFA)';
+  var hints = {
+    achat: "L'achat est payé avec les espèces du compte-titres. Enregistre d'abord le versement correspondant.",
+    vente: "La plus-value (ou moins-value) est calculée automatiquement par rapport à ton PRU, et l'argent revient en espèces sur le compte-titres.",
+    dividende: "Saisis le montant NET réellement reçu (après IRVM). Il s'ajoute aux espèces du compte-titres.",
+    frais: "Droits de garde, tenue de compte, taxes… Ils diminuent les espèces.",
+    initial: "Pour une action que tu détiens déjà : saisis la quantité et ton prix de revient moyen. Le montant est compté comme capital déjà investi, sans toucher aux espèces."
+  };
+  document.getElementById('pfOpHint').textContent = hints[t] || '';
+}
+function updatePfContribForm(){
+  var isRet = document.getElementById('pfContribType').value === 'retrait';
+  document.getElementById('pfContribDestField').style.display = isRet ? '' : 'none';
+  document.getElementById('pfContribDest').innerHTML = '<option value="">— Sortie simple (dépensé / ailleurs) —</option>' +
+    state.patrimoine.accounts.map(function(a){ return '<option value="'+a.id+'">🏦 Vers '+escapeHtml(a.name)+'</option>'; }).join('');
+}
+function kpiMini(label, val, cls, sub){
+  return '<div style="background:var(--surface2);border-radius:12px;padding:10px"><div class="lbl" style="font-size:10.5px;color:var(--text-dim);font-weight:600">'+label+'</div>'+
+    '<div style="font-weight:800;font-size:15px" class="'+(cls||'')+'">'+val+'</div>'+(sub?'<div style="font-size:10.5px;color:var(--text-dim)">'+sub+'</div>':'')+'</div>';
+}
+function sgn(n){ return (n>=0?'+':'')+fmtShort(n); }
 function renderPortfolioDetailContent(){
   var p = portfolioById(state.activePatrimoineId);
   if(!p) return;
-  var val = portfolioValue(p), invested = portfolioInvested(p), gain = val-invested;
-  var gainPct = invested>0 ? (gain/invested*100) : 0;
+  var hasTrades = pfHasTrades(p);
   var html = '<div class="modal-title">'+escapeHtml(p.name)+'</div>';
   html += '<div class="lr-sub" style="margin-bottom:12px">'+escapeHtml(p.broker||'')+'</div>';
-  html += '<div class="triple-col">';
-  html += '<div><div class="lbl">Valeur actuelle</div><div class="val">'+fmtShort(val)+'</div></div>';
-  html += '<div><div class="lbl">Investi</div><div class="val">'+fmtShort(invested)+'</div></div>';
-  html += '<div><div class="lbl">Gain/Perte</div><div class="val '+(gain>=0?'pos':'neg')+'">'+(gain>=0?'+':'')+fmtShort(gain)+'</div></div>';
-  html += '</div><div class="lr-sub" style="text-align:center;margin-bottom:6px">'+(gain>=0?'+':'')+gainPct.toFixed(1)+'% depuis le premier versement</div>';
+
+  if(hasTrades){
+    var st = portfolioStats(p);
+    html += '<div class="card" style="text-align:center;margin-bottom:10px"><div class="lbl" style="font-size:11px;color:var(--text-dim);font-weight:600">Valeur du portefeuille à date</div>'+
+      '<div style="font-size:26px;font-weight:800">'+fmt(st.value)+'</div>'+
+      '<div class="'+(st.perf>=0?'pos':'neg')+'" style="font-weight:700">'+sgn(st.perf)+' FCFA ('+(st.perf>=0?'+':'')+st.perfPct.toFixed(1)+'%) sur le capital investi</div></div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">';
+    html += kpiMini('💼 Capital investi', fmtShort(st.invested), '', 'versements nets + reprises');
+    html += kpiMini('💵 Espèces disponibles', fmtShort(st.cash), st.cash<0?'neg':'', 'sur le compte-titres');
+    html += kpiMini('📈 Plus-values latentes', sgn(st.latent), st.latent>=0?'pos':'neg', 'non encaissées');
+    html += kpiMini('✅ Plus-values réalisées', sgn(st.realized), st.realized>=0?'pos':'neg', 'sur ventes');
+    html += kpiMini('💰 Dividendes encaissés', fmtShort(st.dividends), 'pos', 'nets');
+    html += kpiMini('🧾 Frais payés', fmtShort(st.fees), '', 'commissions + frais');
+    html += '</div>';
+    if(st.cash < 0){
+      html += '<div style="font-size:11.5px;color:var(--orange);margin:6px 0">⚠️ Espèces négatives : il manque un versement pour couvrir tes achats. Ajoute le versement, ou utilise « Position initiale » pour les actions acquises avant.</div>';
+    }
+  } else {
+    var val = portfolioValue(p), invested = portfolioInvested(p), gain = val-invested;
+    var gainPct = invested>0 ? (gain/invested*100) : 0;
+    html += '<div class="triple-col">';
+    html += '<div><div class="lbl">Valeur actuelle</div><div class="val">'+fmtShort(val)+'</div></div>';
+    html += '<div><div class="lbl">Investi</div><div class="val">'+fmtShort(invested)+'</div></div>';
+    html += '<div><div class="lbl">Gain/Perte</div><div class="val '+(gain>=0?'pos':'neg')+'">'+sgn(gain)+'</div></div>';
+    html += '</div><div class="lr-sub" style="text-align:center;margin-bottom:6px">'+(gain>=0?'+':'')+gainPct.toFixed(1)+'% · ajoute tes positions ci-dessous pour un suivi action par action</div>';
+  }
   document.getElementById('portfolioDetailContent').innerHTML = html;
 
-  var entries = [];
-  (p.contributions||[]).forEach(function(c){ entries.push({date:c.date, id:c.id, kind:'contrib', type:c.type, amount:c.amount, note:c.note}); });
-  (p.valuations||[]).forEach(function(v){ entries.push({date:v.date, id:v.id, kind:'val', value:v.value}); });
-  entries.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-  var histHtml = entries.map(function(e){
-    if(e.kind==='contrib'){
-      var label = e.type==='versement' ? 'Versement' : 'Retrait';
-      return '<div class="history-row"><div><b>'+(e.amount>=0?'+':'')+fmtShort(e.amount)+'</b> · '+label+(e.note?' · '+escapeHtml(e.note):'')+'<div class="lr-sub">'+formatDateFr(e.date)+'</div></div>' +
-        '<button class="hr-del" onclick="deleteContribution(\''+e.id+'\')">🗑</button></div>';
+  // Positions
+  var posHtml = '', priceHtml = '';
+  if(hasTrades){
+    var st2 = portfolioStats(p);
+    posHtml = st2.positions.map(function(x){
+      var w = st2.marketValue>0 ? x.value/st2.marketValue*100 : 0;
+      return '<div class="recon-row"><div class="top"><span>'+escapeHtml(x.ticker)+(x.name?' <span style="font-weight:500;color:var(--text-dim)">· '+escapeHtml(x.name)+'</span>':'')+'</span><span>'+fmt(x.value)+'</span></div>'+
+        '<div style="display:flex;justify-content:space-between;gap:8px"><span>'+fmtShort(x.qty)+' × '+fmtShort(x.price)+(x.priceDate?' ('+formatDateFr(x.priceDate)+')':' <span style="color:var(--orange)">cours non saisi</span>')+'</span>'+
+        '<span class="'+(x.latent>=0?'pos':'neg')+'" style="font-weight:700">'+sgn(x.latent)+' ('+(x.latent>=0?'+':'')+x.latentPct.toFixed(1)+'%)</span></div>'+
+        '<div style="color:var(--text-dim);margin-top:2px">PRU '+fmtShort(x.pru)+' · poids '+w.toFixed(0)+'%'+(x.dividends>0?' · div. '+fmtShort(x.dividends):'')+(x.realized?' · réalisé '+sgn(x.realized):'')+'</div></div>';
+    }).join('');
+    if(st2.closed.length){
+      posHtml += '<div style="font-size:11.5px;color:var(--text-dim);margin:8px 0 4px">Lignes soldées</div>' + st2.closed.map(function(x){
+        return '<div class="recon-row" style="opacity:.75"><div class="top"><span>'+escapeHtml(x.ticker)+'</span><span class="'+(x.realized>=0?'pos':'neg')+'">'+sgn(x.realized)+' réalisé</span></div>'+(x.dividends>0?'<div>div. '+fmtShort(x.dividends)+'</div>':'')+'</div>';
+      }).join('');
     }
-    return '<div class="history-row"><div>🔄 Valeur mise à jour: <b>'+fmtShort(e.value)+'</b><div class="lr-sub">'+formatDateFr(e.date)+'</div></div>' +
-      '<button class="hr-del" onclick="deleteValuation(\''+e.id+'\')">🗑</button></div>';
+    priceHtml = st2.positions.map(function(x){
+      return '<div class="field"><label>'+escapeHtml(x.ticker)+(x.name?' · '+escapeHtml(x.name):'')+' <span style="color:var(--text-dim);font-weight:500">(actuel : '+fmtShort(x.price)+')</span></label>'+
+        '<input type="number" inputmode="decimal" class="pf-price-input" data-ticker="'+escapeHtml(x.ticker)+'" placeholder="'+x.price+'"></div>';
+    }).join('');
+  }
+  document.getElementById('pfPositionsList').innerHTML = posHtml || '<div class="empty-state">Aucune position. Utilise « Position initiale » pour reprendre les actions que tu détiens déjà.</div>';
+  document.getElementById('pfPriceInputs').innerHTML = priceHtml;
+  document.getElementById('pfPriceBlock').style.display = priceHtml ? '' : 'none';
+  document.getElementById('pfLegacyValBlock').style.display = hasTrades ? 'none' : '';
+  var tickers = {};
+  (p.trades||[]).forEach(function(t){ if(t.ticker) tickers[t.ticker] = 1; });
+  document.getElementById('pfTickerList').innerHTML = Object.keys(tickers).map(function(t){ return '<option value="'+escapeHtml(t)+'">'; }).join('');
+
+  // Historique
+  var entries = [];
+  (p.contributions||[]).forEach(function(c){ entries.push({date:c.date, id:c.id, kind:'contrib', type:c.type, amount:c.amount, note:c.note, dest:c.destName}); });
+  (p.trades||[]).forEach(function(t){ entries.push({date:t.date, id:t.id, kind:'trade', t:t}); });
+  if(!hasTrades) (p.valuations||[]).forEach(function(v){ entries.push({date:v.date, id:v.id, kind:'val', value:v.value}); });
+  (p.priceLog||[]).forEach(function(l){ entries.push({date:l.date, id:l.id, kind:'prices', n:l.n}); });
+  entries.sort(function(a,b){ return (b.date||'').localeCompare(a.date||'') || (''+b.id).localeCompare(''+a.id); });
+  var labels = {achat:'🟢 Achat', vente:'🔴 Vente', dividende:'💰 Dividende', frais:'🧾 Frais', initial:'📌 Position initiale'};
+  var histHtml = entries.map(function(e){
+    var body, del = '';
+    if(e.kind==='contrib'){
+      body = '<b>'+(e.amount>=0?'+':'')+fmtShort(e.amount)+'</b> · '+(e.type==='versement'?'💵 Versement':'↩️ Retrait')+(e.dest?' → '+escapeHtml(e.dest):'')+(e.note?' · '+escapeHtml(e.note):'');
+      del = 'deleteContribution(\''+e.id+'\')';
+    } else if(e.kind==='trade'){
+      var t = e.t;
+      if(t.type==='dividende' || t.type==='frais') body = labels[t.type]+(t.ticker?' '+escapeHtml(t.ticker):'')+' · <b>'+fmtShort(t.amount)+'</b>';
+      else body = labels[t.type]+' '+escapeHtml(t.ticker)+' · '+fmtShort(t.qty)+' × '+fmtShort(t.price)+(Number(t.fees)?(t.type==='vente'?' − frais ':' + frais ')+fmtShort(t.fees):'')+' = <b>'+fmtShort(t.qty*t.price)+'</b>';
+      if(t.note) body += ' · '+escapeHtml(t.note);
+      del = 'deletePfTrade(\''+e.id+'\')';
+    } else if(e.kind==='prices'){
+      body = '🔄 Cours mis à jour ('+e.n+' ligne'+(e.n>1?'s':'')+')';
+    } else {
+      body = '🔄 Valeur mise à jour: <b>'+fmtShort(e.value)+'</b>';
+      del = 'deleteValuation(\''+e.id+'\')';
+    }
+    return '<div class="history-row"><div>'+body+'<div class="lr-sub">'+formatDateFr(e.date)+'</div></div>'+(del?'<button class="hr-del" onclick="'+del+'">🗑</button>':'')+'</div>';
   }).join('');
   document.getElementById('portfolioHistoryList').innerHTML = histHtml || '<div class="empty-state">Aucun historique</div>';
+}
+function refreshPortfolioViews(){
+  renderPortfolioDetailContent();
+  renderPortfoliosList();
+  renderPatrimoineOverview();
+}
+function savePortfolioOperation(){
+  var p = portfolioById(state.activePatrimoineId);
+  if(!p) return;
+  if(!p.trades) p.trades = [];
+  var type = document.getElementById('pfOpType').value;
+  var ticker = document.getElementById('pfOpTicker').value.trim().toUpperCase();
+  var name = document.getElementById('pfOpName').value.trim();
+  var qty = Number(document.getElementById('pfOpQty').value);
+  var price = Number(document.getElementById('pfOpPrice').value);
+  var fees = Number(document.getElementById('pfOpFees').value) || 0;
+  var amount = Number(document.getElementById('pfOpAmount').value);
+  var op = { id: genId(), date: document.getElementById('pfOpDate').value || todayStr(), type: type };
+  if(type === 'achat' || type === 'vente' || type === 'initial'){
+    if(!ticker){ showToast('Indique le symbole de l\'action'); return; }
+    if(!(qty > 0) || !(price > 0)){ showToast('Quantité et prix requis'); return; }
+    if(type === 'vente'){
+      var held = (portfolioStats(p).positions.find(function(x){ return x.ticker === ticker; }) || {qty:0}).qty;
+      if(qty > held){ showToast('Tu ne détiens que '+fmtShort(held)+' '+ticker); return; }
+    }
+    op.ticker = ticker; op.qty = qty; op.price = price;
+    if(type !== 'initial') op.fees = fees;
+    if(name) op.name = name;
+  } else {
+    if(!(amount > 0)){ showToast('Montant invalide'); return; }
+    op.amount = amount;
+    if(ticker && type === 'dividende') op.ticker = ticker;
+  }
+  p.trades.push(op);
+  // Le cours d'achat/vente sert de dernier cours connu si plus récent
+  if(op.ticker && op.price && type !== 'initial'){
+    var cur = p.prices[op.ticker];
+    if(!cur || (cur.date||'') <= op.date) p.prices[op.ticker] = {price: op.price, date: op.date};
+  }
+  persistPortfolios();
+  resetPfOpForm();
+  refreshPortfolioViews();
+  showToast('Opération enregistrée');
+}
+function savePortfolioPrices(){
+  var p = portfolioById(state.activePatrimoineId);
+  if(!p) return;
+  var date = document.getElementById('pfPriceDate').value || todayStr();
+  var n = 0;
+  document.querySelectorAll('.pf-price-input').forEach(function(inp){
+    var v = Number(inp.value);
+    if(v > 0){ p.prices[inp.dataset.ticker] = {price: v, date: date}; n++; }
+  });
+  if(!n){ showToast('Saisis au moins un cours'); return; }
+  if(!p.priceLog) p.priceLog = [];
+  p.priceLog.push({id: genId(), date: date, n: n});
+  persistPortfolios();
+  refreshPortfolioViews();
+  showToast('Cours mis à jour');
+}
+function deletePfTrade(id){
+  var p = portfolioById(state.activePatrimoineId);
+  if(!p) return;
+  if(!confirm('Supprimer cette opération ?')) return;
+  p.trades = p.trades.filter(function(t){ return t.id !== id; });
+  persistPortfolios();
+  refreshPortfolioViews();
 }
 function savePortfolioContribution(){
   var p = portfolioById(state.activePatrimoineId);
@@ -2033,20 +2437,26 @@ function savePortfolioContribution(){
   var rawAmount = Number(document.getElementById('pfContribAmount').value);
   if(!rawAmount || rawAmount<=0){ showToast('Montant invalide'); return; }
   var amount = type==='retrait' ? -Math.abs(rawAmount) : Math.abs(rawAmount);
-  p.contributions.push({
-    id: genId(),
-    date: document.getElementById('pfContribDate').value || todayStr(),
-    type: type,
-    amount: amount,
-    note: document.getElementById('pfContribNote').value.trim()
-  });
+  var date = document.getElementById('pfContribDate').value || todayStr();
+  var note = document.getElementById('pfContribNote').value.trim();
+  var c = { id: genId(), date: date, type: type, amount: amount, note: note };
+  if(type === 'retrait'){
+    var destId = document.getElementById('pfContribDest').value;
+    var acc = destId ? accountById(destId) : null;
+    if(acc){
+      var movId = genId();
+      acc.movements.push({ id: movId, date: date, type: 'depot', amount: Math.abs(rawAmount), note: 'Retrait bourse ' + p.name + (note?' · '+note:'') });
+      persistAccounts();
+      c.destId = acc.id; c.destName = acc.name; c.destMovId = movId;
+      renderAccountsList();
+    }
+  }
+  p.contributions.push(c);
   persistPortfolios();
   document.getElementById('pfContribAmount').value = '';
   document.getElementById('pfContribNote').value = '';
-  renderPortfolioDetailContent();
-  renderPortfoliosList();
-  renderPatrimoineOverview();
-  showToast('Mouvement enregistré');
+  refreshPortfolioViews();
+  showToast(c.destName ? 'Retrait enregistré et crédité sur ' + c.destName : 'Mouvement enregistré');
 }
 function savePortfolioValuation(){
   var p = portfolioById(state.activePatrimoineId);
@@ -2056,28 +2466,31 @@ function savePortfolioValuation(){
   p.valuations.push({ id: genId(), date: document.getElementById('pfValDate').value || todayStr(), value: value });
   persistPortfolios();
   document.getElementById('pfValAmount').value = '';
-  renderPortfolioDetailContent();
-  renderPortfoliosList();
-  renderPatrimoineOverview();
+  refreshPortfolioViews();
   showToast('Valeur mise à jour');
 }
 function deleteContribution(cId){
   var p = portfolioById(state.activePatrimoineId);
   if(!p) return;
+  var c = p.contributions.find(function(x){ return x.id === cId; });
+  if(c && c.destId && c.destMovId){
+    var acc = accountById(c.destId);
+    if(acc && confirm('Supprimer aussi le dépôt correspondant sur ' + acc.name + ' ?')){
+      acc.movements = acc.movements.filter(function(m){ return m.id !== c.destMovId; });
+      persistAccounts();
+      renderAccountsList();
+    }
+  }
   p.contributions = p.contributions.filter(function(c){ return c.id !== cId; });
   persistPortfolios();
-  renderPortfolioDetailContent();
-  renderPortfoliosList();
-  renderPatrimoineOverview();
+  refreshPortfolioViews();
 }
 function deleteValuation(vId){
   var p = portfolioById(state.activePatrimoineId);
   if(!p) return;
   p.valuations = p.valuations.filter(function(v){ return v.id !== vId; });
   persistPortfolios();
-  renderPortfolioDetailContent();
-  renderPortfoliosList();
-  renderPatrimoineOverview();
+  refreshPortfolioViews();
 }
 function deletePortfolioFromModal(){
   if(!confirm('Supprimer ce portefeuille et tout son historique ?')) return;
@@ -2253,7 +2666,8 @@ function exportExcel(){
       return {
         Date: t.date, Catégorie: cat.name, Description: t.desc || '',
         Montant: t.amount, 'Portefeuille réel': wReal ? wReal.name : t.wallet,
-        'Portefeuille budgété': wBudget ? wBudget.name : t.wallet_budget, Type: t.type
+        'Portefeuille budgété': wBudget ? wBudget.name : t.wallet_budget,
+        'Payé par la ligne': isDiverted(t) ? (CATEGORIES[t.cat_budget]||{name:t.cat_budget}).name : '', Type: t.type
       };
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(txRows), 'Transactions');
@@ -2262,7 +2676,8 @@ function exportExcel(){
     CATEGORY_GROUPS.forEach(function(g){
       g.cats.forEach(function(c){
         var b = catBudgetAmt(c.id), s = catSpent(c.id);
-        catRows.push({ Catégorie: c.name, Groupe: g.name, Budgété: b, Réel: s, Reste: b-s, '%': b>0?Math.round(s/b*100):0 });
+        catRows.push({ Catégorie: c.name, Groupe: g.name, Budgété: b, Réel: s, Reste: b-s, '%': b>0?Math.round(s/b*100):0,
+          'Réaffecté vers autres lignes': catDivertedOut(c.id), 'Reçu d\'autres lignes': catDivertedIn(c.id), 'Usage réel': catSpentNature(c.id) });
       });
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(catRows), 'Par Catégorie');
@@ -2408,11 +2823,11 @@ function importBackup(input){
 }
 
 function exportCSV(){
-  var rows = [['Date','Catégorie','Description','Montant','Portefeuille réel','Portefeuille budgété']];
+  var rows = [['Date','Catégorie','Description','Montant','Portefeuille réel','Portefeuille budgété','Payé par la ligne']];
   state.txs.forEach(function(t){
     var cat = CATEGORIES[t.category] || {name:t.category};
     var wReal = walletById(t.wallet), wBudget = walletById(t.wallet_budget);
-    rows.push([t.date, cat.name, (t.desc||'').replace(/,/g,';'), t.amount, wReal?wReal.name:t.wallet, wBudget?wBudget.name:t.wallet_budget]);
+    rows.push([t.date, cat.name, (t.desc||'').replace(/,/g,';'), t.amount, wReal?wReal.name:t.wallet, wBudget?wBudget.name:t.wallet_budget, isDiverted(t)?(CATEGORIES[t.cat_budget]||{name:t.cat_budget}).name:'']);
   });
   var csv = rows.map(function(r){ return r.join(','); }).join('\n');
   var blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8;'});
