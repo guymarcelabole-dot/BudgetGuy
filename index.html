@@ -1223,7 +1223,11 @@ function renderDashboard(){
 function renderCatList(){
   var html = '';
   CATEGORY_GROUPS.forEach(function(g){
-    html += '<div class="group-header">'+g.name+'</div>';
+    var gB = 0, gS = 0;
+    g.cats.forEach(function(c){ gB += catBudgetAmt(c.id); gS += catSpent(c.id); });
+    var gR = gB - gS;
+    html += '<div class="group-header" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span>'+g.name+'</span>' +
+      (gB > 0 || gS > 0 ? '<span style="font-size:11px;letter-spacing:0;text-transform:none;color:'+(gR>=0?'var(--text-dim)':'var(--red)')+'">'+(gR>=0?'Reste ':'Dépassé de ')+fmtShort(Math.abs(gR))+' FCFA</span>' : '') + '</div>';
     g.cats.forEach(function(c){
       var b = catBudgetAmt(c.id), s = catSpent(c.id);
       var pct = b>0 ? (s/b*100) : (s>0?100:0);
@@ -1231,6 +1235,14 @@ function renderCatList(){
       html += '<div class="cat-row">';
       html += '<div class="cat-row-top"><div class="cat-row-name">'+c.emoji+' '+c.name+'</div><div class="cat-row-amt"><b>'+fmtShort(s)+'</b> / '+fmtShort(b)+' FCFA</div></div>';
       html += '<div class="progress-bar thin"><div class="fill" style="width:'+Math.min(pct,100)+'%;background:'+progressColor(pct)+'"></div></div>';
+      if(b > 0 || s > 0){
+        var rest = b - s;
+        html += '<div style="display:flex;justify-content:space-between;font-size:11.5px;margin-top:5px">' +
+          (rest >= 0
+            ? '<span style="color:var(--accent);font-weight:700">Reste : '+fmtShort(rest)+' FCFA</span>'
+            : '<span style="color:var(--red);font-weight:700">Dépassement : '+fmtShort(-rest)+' FCFA</span>') +
+          '<span style="color:var(--text-dim)">'+(b>0 ? Math.round(pct)+'% consommé' : 'sans budget')+'</span></div>';
+      }
       var dOut = catDivertedOut(c.id), dIn = catDivertedIn(c.id);
       if(dOut > 0 || dIn > 0){
         html += '<div style="font-size:11px;margin-top:5px;color:var(--orange)">';
