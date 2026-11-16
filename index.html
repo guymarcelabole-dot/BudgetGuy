@@ -252,9 +252,9 @@
   <section class="screen active" id="screen-accueil">
     <div class="kpi-grid" id="kpiGrid"></div>
 
-    <div class="section-title">Budgété vs Réel</div>
+    <div class="section-title">Dépenses budgétisées vs réelles</div>
     <div class="card" id="budgetVsReelCard"></div>
-    <button class="btn btn-outline" style="margin-top:10px" onclick="openAllocateSoldeModal()">💰 Affecter le solde net</button>
+    <button class="btn btn-outline" style="margin-top:10px" onclick="openAllocateSoldeModal()">💰 Placer mon épargne</button>
 
     <div id="alertsBlock"></div>
 
@@ -292,11 +292,11 @@
     <div class="rings-grid" id="ringsGrid">
       <div class="ring-card">
         <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="var(--surface2)" stroke-width="9"/><circle id="ring1" cx="50" cy="50" r="42" fill="none" stroke="var(--accent)" stroke-width="9" stroke-linecap="round" transform="rotate(-90 50 50)"/><text x="50" y="56" text-anchor="middle" class="ring-center-text" id="ring1text">0%</text></svg>
-        <div class="ring-label">Taux d'épargne (obj. 30%)</div>
+        <div class="ring-label" id="ring1label">vs mois précédent</div>
       </div>
       <div class="ring-card">
         <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="var(--surface2)" stroke-width="9"/><circle id="ring2" cx="50" cy="50" r="42" fill="none" stroke="var(--blue)" stroke-width="9" stroke-linecap="round" transform="rotate(-90 50 50)"/><text x="50" y="56" text-anchor="middle" class="ring-center-text" id="ring2text">0%</text></svg>
-        <div class="ring-label" id="ring2label">Dépense/jour moy.</div>
+        <div class="ring-label" id="ring2label">Écart portefeuilles</div>
       </div>
       <div class="ring-card">
         <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="var(--surface2)" stroke-width="9"/><circle id="ring3" cx="50" cy="50" r="42" fill="none" stroke="var(--orange)" stroke-width="9" stroke-linecap="round" transform="rotate(-90 50 50)"/><text x="50" y="56" text-anchor="middle" class="ring-center-text" id="ring3text">0%</text></svg>
@@ -460,12 +460,14 @@
     <div class="modal-sheet">
       <button class="modal-close-x" onclick="closeModal('modalAllocateSolde')">✕</button>
       <div class="modal-handle"></div>
-      <div class="modal-title">Affecter le solde net</div>
-      <div class="kpi-card" style="margin-bottom:16px"><div class="kpi-label">Solde net du mois</div><div class="kpi-value" style="font-size:20px" id="allocSoldeDisplay">0 FCFA</div></div>
+      <div class="modal-title">Placer mon épargne</div>
+      <div class="kpi-card" style="margin-bottom:16px"><div class="kpi-label">Reste à placer ce mois-ci</div><div class="kpi-value" style="font-size:20px" id="allocSoldeDisplay">0 FCFA</div><div class="kpi-sub" id="allocSoldeSub"></div></div>
+      <div class="field"><label>Montant à placer (FCFA)</label><input type="number" id="allocAmount" inputmode="numeric" placeholder="0"></div>
       <div class="field"><label>Destination</label><select id="allocType" onchange="populateAllocTargets()">
-        <option value="compte">Compte bancaire</option>
+        <option value="compte">Compte épargne / bancaire</option>
         <option value="portefeuille">Portefeuille boursier</option>
-        <option value="projet">Projet d'épargne</option>
+        <option value="projet">Projet (maison, voiture…)</option>
+        <option value="assurance">Assurance étude</option>
       </select></div>
       <div class="field"><label id="allocTargetLabel">Compte</label><select id="allocTarget"></select></div>
       <div class="field"><label>Date</label><input type="date" id="allocDate"></div>
@@ -1159,27 +1161,100 @@ function closeModal(id){
 /* =====================================================================
    RENDER: ACCUEIL
 ===================================================================== */
+// ===== ÉPARGNE DU MOIS =====
+// Prévue = revenus − budget de fonctionnement
+// Consommée = dépenses sur lignes sans budget + dépassements des lignes budgétées
+// Placée = argent mis dans le patrimoine ce mois-ci (comptes épargne, bourse, projets, assurance)
+function bmKey(){ return state.year + '_' + state.month; }
+function inBudgetMonth(x){
+  if(x.bm) return x.bm === bmKey();
+  if(!x.date) return false;
+  var d = new Date(x.date + 'T00:00:00');
+  return d.getFullYear() === state.year && d.getMonth() === state.month;
+}
+function savingsPlacedDetail(){
+  var det = {comptes:0, bourse:0, projets:0, assurance:0};
+  state.patrimoine.accounts.forEach(function(a){
+    (a.movements||[]).forEach(function(m){
+      if((a.type === 'epargne' || m.placement) && inBudgetMonth(m)) det.comptes += Number(m.amount)||0;
+    });
+  });
+  state.patrimoine.portfolios.forEach(function(p){
+    (p.contributions||[]).forEach(function(c){ if(inBudgetMonth(c)) det.bourse += Number(c.amount)||0; });
+  });
+  state.patrimoine.projects.forEach(function(p){
+    (p.contributions||[]).forEach(function(c){ if(inBudgetMonth(c)) det.projets += Number(c.amount)||0; });
+  });
+  (state.patrimoine.insurance||[]).forEach(function(i){
+    (i.payments||[]).forEach(function(x){ if(inBudgetMonth(x)) det.assurance += Number(x.amount)||0; });
+  });
+  det.total = det.comptes + det.bourse + det.projets + det.assurance;
+  return det;
+}
+function budgetedSpent(){
+  var t = 0;
+  Object.keys(CATEGORIES).forEach(function(id){ if(catBudgetAmt(id) > 0) t += catSpent(id); });
+  return t;
+}
+function savingsOfMonth(){
+  var planned = totalRevenus() - totalBudget();
+  var horsBudget = 0, depassements = 0;
+  Object.keys(CATEGORIES).forEach(function(id){
+    var b = catBudgetAmt(id), sp = catSpent(id);
+    if(b <= 0) horsBudget += sp;
+    else if(sp > b) depassements += sp - b;
+  });
+  var consumed = horsBudget;   // dépenses inopinées, sans budget
+  var placed = savingsPlacedDetail();
+  return { planned: planned, horsBudget: horsBudget, depassements: depassements, consumed: consumed,
+           placed: placed.total, placedDetail: placed, rest: planned - consumed - placed.total };
+}
+function savingsCardHtml(){
+  var ep = savingsOfMonth();
+  var base = Math.max(ep.planned, ep.consumed + ep.placed, 1);
+  var w = function(v){ return Math.max(0, v) / base * 100; };
+  var h = '<div class="kpi-card" style="grid-column:1 / -1">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div class="kpi-label">💰 Épargne du mois</div>' +
+       '<div style="font-size:11px;color:var(--text-dim)">revenus − dépenses budgétisées</div></div>';
+  h += '<div class="kpi-value '+(ep.planned>=0?'pos':'neg')+'" style="font-size:22px">'+fmt(ep.planned)+'</div>';
+  h += '<div style="display:flex;height:8px;border-radius:6px;overflow:hidden;background:var(--surface2);margin:10px 0 10px">' +
+       '<div style="width:'+w(ep.consumed)+'%;background:var(--red)"></div>' +
+       '<div style="width:'+w(ep.placed)+'%;background:var(--accent)"></div></div>';
+  var col = function(lbl, sub, val, color, cls){ return '<div><div style="font-size:10.5px;color:var(--text-dim);font-weight:600;display:flex;align-items:center;gap:5px">' +
+       '<span style="width:8px;height:8px;border-radius:2px;background:'+color+';display:inline-block"></span>'+lbl+'</div>' +
+       '<div style="font-weight:800;font-size:14px" class="'+(cls||'')+'">'+fmtShort(val)+'</div>' +
+       '<div style="font-size:10px;color:var(--text-dim)">'+sub+'</div></div>'; };
+  h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">' +
+       col('Consommée', 'dépenses inopinées', ep.consumed, 'var(--red)') +
+       col('Placée', 'patrimoine', ep.placed, 'var(--accent)') +
+       col('Reste à placer', '', ep.rest, 'var(--surface2)', ep.rest>=0?'':'neg') + '</div>';
+  if(totalBudget() <= 0) h += '<div style="font-size:11px;color:var(--orange);margin-top:8px">Saisis tes dépenses budgétisées du mois pour calculer l\'épargne.</div>';
+  h += '</div>';
+  return h;
+}
+
 function renderDashboard(){
   var revenus = totalRevenus();
   var depenses = totalDepenses();
   var solde = revenus - depenses;
   var tauxEp = revenus > 0 ? (solde / revenus * 100) : 0;
   var budgetTotal = totalBudget();
-  var budgetPct = budgetTotal > 0 ? (depenses / budgetTotal * 100) : 0;
+  var depReelles = budgetedSpent();
+  var budgetPct = budgetTotal > 0 ? (depReelles / budgetTotal * 100) : 0;
 
   // KPIs
   var kpiHtml = '';
   kpiHtml += '<div class="kpi-card"><div class="kpi-label">Revenus du mois</div><div class="kpi-value">'+fmt(revenus)+'</div></div>';
-  kpiHtml += '<div class="kpi-card"><div class="kpi-label">Solde net</div><div class="kpi-value '+(solde>=0?'pos':'neg')+'">'+fmt(solde)+'</div></div>';
-  kpiHtml += '<div class="kpi-card"><div class="kpi-label">Taux d\'épargne</div><div class="kpi-value '+(tauxEp>=30?'pos':(tauxEp>=0?'warn':'neg'))+'">'+tauxEp.toFixed(1)+'%</div><div class="kpi-sub">Objectif 30%</div></div>';
-  kpiHtml += '<div class="kpi-card"><div class="kpi-label">Budget consommé</div><div class="kpi-value" style="color:'+progressColor(budgetPct)+'">'+budgetPct.toFixed(1)+'%</div></div>';
+  kpiHtml += '<div class="kpi-card"><div class="kpi-label">Dépenses budgétisées du mois</div><div class="kpi-value">'+fmt(budgetTotal)+'</div></div>';
+  kpiHtml += savingsCardHtml();
+  kpiHtml += '<div class="kpi-card" style="grid-column:1 / -1;display:flex;justify-content:space-between;align-items:center"><div class="kpi-label" style="margin:0">Dépenses budgétisées consommées</div><div class="kpi-value" style="color:'+progressColor(budgetPct)+'">'+budgetPct.toFixed(1)+'%</div></div>';
   document.getElementById('kpiGrid').innerHTML = kpiHtml;
 
   // Budgété vs Réel
-  var reste = budgetTotal - depenses;
+  var reste = budgetTotal - depReelles;
   var bvr = '<div class="triple-col">';
-  bvr += '<div><div class="lbl">Budgété</div><div class="val">'+fmtShort(budgetTotal)+'</div></div>';
-  bvr += '<div><div class="lbl">Réel</div><div class="val">'+fmtShort(depenses)+'</div></div>';
+  bvr += '<div><div class="lbl">Dépenses budgétisées</div><div class="val">'+fmtShort(budgetTotal)+'</div></div>';
+  bvr += '<div><div class="lbl">Dépenses réelles</div><div class="val">'+fmtShort(depReelles)+'</div></div>';
   bvr += '<div><div class="lbl">Reste</div><div class="val" style="color:'+(reste>=0?'var(--accent)':'var(--red)')+'">'+fmtShort(reste)+'</div></div>';
   bvr += '</div><div class="progress-bar"><div class="fill" style="width:'+Math.min(budgetPct,100)+'%;background:'+progressColor(budgetPct)+'"></div></div>';
   document.getElementById('budgetVsReelCard').innerHTML = bvr;
@@ -1378,19 +1453,59 @@ function setRing(id, pct, textVal){
   text.textContent = textVal;
 }
 
+// Comparaison avec le mois précédent, au même stade du mois
+function compareWithPrevMonth(){
+  var cur = state.txs.slice();
+  var py = state.month === 0 ? state.year - 1 : state.year, pm = state.month === 0 ? 11 : state.month - 1;
+  var prev = getData('budgetguy_'+py+'_'+pm+'_txs') || [];
+  function sum(list){ return list.reduce(function(s,t){ return s + (Number(t.amount)||0); }, 0); }
+  function startOf(list, y, m){
+    var d = list.map(function(t){ return t.date; }).filter(Boolean).sort()[0];
+    return d ? new Date(d+'T00:00:00') : new Date(y, m, 1);
+  }
+  var today = new Date(); today.setHours(0,0,0,0);
+  var isCurrent = today.getFullYear() === state.year && today.getMonth() === state.month;
+  var curStart = startOf(cur, state.year, state.month);
+  var prevStart = startOf(prev, py, pm);
+  var closed = !isCurrent && new Date(state.year, state.month + 1, 0) < today;
+  var curTotal = sum(cur), prevTotal;
+  if(closed || !cur.length){
+    prevTotal = sum(prev);
+  } else {
+    var offset = Math.round((today - curStart) / 86400000);
+    var limit = new Date(prevStart.getTime() + offset * 86400000);
+    prevTotal = sum(prev.filter(function(t){ return t.date && new Date(t.date+'T00:00:00') <= limit; }));
+  }
+  return { cur: curTotal, prev: prevTotal, prevName: MONTH_FULL[pm], full: closed || !cur.length, hasPrev: prev.length > 0 };
+}
+
 function renderRings(){
-  var revenus = totalRevenus();
   var depenses = totalDepenses();
-  var solde = revenus - depenses;
-  var tauxEp = revenus > 0 ? (solde/revenus*100) : 0;
-  setRing('ring1', tauxEp, tauxEp.toFixed(0)+'%');
+
+  // 1. Comparaison M-1
+  var c = compareWithPrevMonth();
+  var lbl1 = document.getElementById('ring1label');
+  if(!c.hasPrev){
+    setRing('ring1', 0, '—');
+    lbl1.textContent = 'Pas de données en '+c.prevName;
+  } else {
+    var diff = c.prev > 0 ? (c.cur - c.prev) / c.prev * 100 : 0;
+    setRing('ring1', c.prev > 0 ? c.cur / c.prev * 100 : 0, (diff >= 0 ? '+' : '') + diff.toFixed(0) + '%');
+    document.getElementById('ring1').style.stroke = diff >= 5 ? 'var(--red)' : (diff > -5 ? 'var(--blue)' : 'var(--accent)');
+    lbl1.textContent = 'vs '+c.prevName+(c.full ? '' : ' au même stade')+' : '+fmtShort(c.cur)+' contre '+fmtShort(c.prev);
+  }
+
+  // 2. Écart de réconciliation portefeuilles
+  var ecartTx = state.txs.filter(function(t){ return t.wallet_budget && t.wallet_budget !== t.wallet; });
+  var ecart = ecartTx.reduce(function(s,t){ return s + (Number(t.amount)||0); }, 0);
+  var ecartPct = depenses > 0 ? ecart / depenses * 100 : 0;
+  setRing('ring2', ecartPct, fmtShort(ecart));
+  document.getElementById('ring2label').textContent = 'Écart portefeuilles : '+ecartTx.length+' opération'+(ecartTx.length>1?'s':'')+' ('+ecartPct.toFixed(0)+'% des dépenses)';
 
   var dim = daysInMonth(state.year, state.month);
   var elapsed = daysElapsed();
   var avgDaily = elapsed > 0 ? depenses/elapsed : 0;
   var projection = avgDaily * dim;
-  document.getElementById('ring2label').textContent = fmtShort(avgDaily)+' FCFA/j';
-  setRing('ring2', (elapsed/dim*100), fmtShort(projection));
 
   var budgetTotal = totalBudget();
   var projVsBudget = budgetTotal > 0 ? (projection/budgetTotal*100) : 0;
@@ -2000,15 +2115,13 @@ function selectMonth(year, month){
    MODAL: Affecter le solde net (pont Budget -> Patrimoine)
 ===================================================================== */
 function openAllocateSoldeModal(){
-  var solde = totalRevenus() - totalDepenses();
-  if(!(solde > 0)){
-    showToast('Le solde net du mois n\'est pas positif');
-    return;
-  }
-  document.getElementById('allocSoldeDisplay').textContent = fmt(solde);
+  var ep = savingsOfMonth();
+  document.getElementById('allocSoldeDisplay').textContent = fmt(ep.rest);
+  document.getElementById('allocSoldeSub').textContent = 'Épargne du mois '+fmtShort(ep.planned)+' · consommée '+fmtShort(ep.consumed)+' · déjà placée '+fmtShort(ep.placed);
+  document.getElementById('allocAmount').value = ep.rest > 0 ? Math.round(ep.rest) : '';
   document.getElementById('allocType').value = 'compte';
   document.getElementById('allocDate').value = todayStr();
-  document.getElementById('allocNote').value = 'Reliquat ' + MONTH_FULL[state.month] + ' ' + state.year;
+  document.getElementById('allocNote').value = 'Épargne ' + MONTH_FULL[state.month] + ' ' + state.year;
   populateAllocTargets();
   openModal('modalAllocateSolde');
 }
@@ -2017,38 +2130,49 @@ function populateAllocTargets(){
   var label = document.getElementById('allocTargetLabel');
   var sel = document.getElementById('allocTarget');
   var items;
-  if(type === 'compte'){ items = state.patrimoine.accounts; label.textContent = 'Compte'; }
+  if(type === 'compte'){
+    items = state.patrimoine.accounts.slice().sort(function(a,b){ return (a.type==='epargne'?0:1) - (b.type==='epargne'?0:1); });
+    label.textContent = 'Compte';
+  }
   else if(type === 'portefeuille'){ items = state.patrimoine.portfolios; label.textContent = 'Portefeuille'; }
+  else if(type === 'assurance'){ items = state.patrimoine.insurance || []; label.textContent = 'Assurance'; }
   else { items = state.patrimoine.projects; label.textContent = 'Projet'; }
-  sel.innerHTML = items.map(function(i){ return '<option value="'+i.id+'">'+escapeHtml(i.name)+'</option>'; }).join('') || '<option value="">Aucun</option>';
+  sel.innerHTML = items.map(function(i){ return '<option value="'+i.id+'">'+escapeHtml(i.name)+(i.type==='epargne'?' (épargne)':'')+'</option>'; }).join('') || '<option value="">Aucun</option>';
 }
 function saveAllocateSolde(){
-  var solde = totalRevenus() - totalDepenses();
-  if(!(solde > 0)){ showToast('Solde net invalide'); return; }
+  var amount = Number(document.getElementById('allocAmount').value);
+  if(!(amount > 0)){ showToast('Indique le montant à placer'); return; }
   var type = document.getElementById('allocType').value;
   var targetId = document.getElementById('allocTarget').value;
   var date = document.getElementById('allocDate').value || todayStr();
   var note = document.getElementById('allocNote').value.trim();
   if(!targetId){ showToast('Aucune destination disponible'); return; }
-
+  var tag = { bm: bmKey(), placement: true };
   if(type === 'compte'){
     var a = accountById(targetId);
     if(!a){ showToast('Compte introuvable'); return; }
-    a.movements.push({ id: genId(), date: date, type: 'depot', amount: Math.abs(solde), note: note });
+    a.movements.push(Object.assign({ id: genId(), date: date, type: 'depot', amount: amount, note: note }, tag));
     persistAccounts();
   } else if(type === 'portefeuille'){
     var p = portfolioById(targetId);
     if(!p){ showToast('Portefeuille introuvable'); return; }
-    p.contributions.push({ id: genId(), date: date, type: 'versement', amount: Math.abs(solde), note: note });
+    p.contributions.push(Object.assign({ id: genId(), date: date, type: 'versement', amount: amount, note: note }, tag));
     persistPortfolios();
+  } else if(type === 'assurance'){
+    var ins = insuranceById(targetId);
+    if(!ins){ showToast('Assurance introuvable'); return; }
+    ins.payments.push(Object.assign({ id: genId(), date: date, amount: amount, note: note }, tag));
+    persistInsurance();
   } else {
     var pr = projectById(targetId);
     if(!pr){ showToast('Projet introuvable'); return; }
-    pr.contributions.push({ id: genId(), date: date, type: 'cotisation', amount: Math.abs(solde), note: note });
+    pr.contributions.push(Object.assign({ id: genId(), date: date, type: 'cotisation', amount: amount, note: note }, tag));
     persistProjects();
   }
   closeModal('modalAllocateSolde');
-  showToast('Solde net affecté');
+  renderCurrentScreen();
+  var rest = savingsOfMonth().rest;
+  showToast(fmtShort(amount)+' placés · reste à placer '+fmtShort(rest));
 }
 
 /* =====================================================================
@@ -2095,7 +2219,8 @@ function saveAccountMovement(){
     date: document.getElementById('accMovDate').value || todayStr(),
     type: type,
     amount: amount,
-    note: document.getElementById('accMovNote').value.trim()
+    note: document.getElementById('accMovNote').value.trim(),
+    bm: bmKey()
   });
   persistAccounts();
   document.getElementById('accMovAmount').value = '';
@@ -2189,7 +2314,8 @@ function saveInsurancePayment(){
     id: genId(),
     date: document.getElementById('insPayDate').value || todayStr(),
     amount: amount,
-    note: document.getElementById('insPayNote').value.trim()
+    note: document.getElementById('insPayNote').value.trim(),
+    bm: bmKey()
   });
   persistInsurance();
   document.getElementById('insPayNote').value = '';
@@ -2451,13 +2577,13 @@ function savePortfolioContribution(){
   var amount = type==='retrait' ? -Math.abs(rawAmount) : Math.abs(rawAmount);
   var date = document.getElementById('pfContribDate').value || todayStr();
   var note = document.getElementById('pfContribNote').value.trim();
-  var c = { id: genId(), date: date, type: type, amount: amount, note: note };
+  var c = { id: genId(), date: date, type: type, amount: amount, note: note, bm: bmKey() };
   if(type === 'retrait'){
     var destId = document.getElementById('pfContribDest').value;
     var acc = destId ? accountById(destId) : null;
     if(acc){
       var movId = genId();
-      acc.movements.push({ id: movId, date: date, type: 'depot', amount: Math.abs(rawAmount), note: 'Retrait bourse ' + p.name + (note?' · '+note:'') });
+      acc.movements.push({ id: movId, date: date, type: 'depot', amount: Math.abs(rawAmount), note: 'Retrait bourse ' + p.name + (note?' · '+note:''), bm: bmKey() });
       persistAccounts();
       c.destId = acc.id; c.destName = acc.name; c.destMovId = movId;
       renderAccountsList();
@@ -2595,7 +2721,8 @@ function saveProjectContribution(){
     date: document.getElementById('projContribDate').value || todayStr(),
     type: type,
     amount: amount,
-    note: document.getElementById('projContribNote').value.trim()
+    note: document.getElementById('projContribNote').value.trim(),
+    bm: bmKey()
   });
   persistProjects();
   document.getElementById('projContribAmount').value = '';
@@ -2705,7 +2832,12 @@ function exportExcel(){
       {Métrique:'Revenus du mois', Valeur:revenus},
       {Métrique:'Dépenses du mois', Valeur:depenses},
       {Métrique:'Solde net', Valeur:solde},
-      {Métrique:"Taux d'épargne (%)", Valeur: revenus>0?Math.round(solde/revenus*100):0},
+      {Métrique:'Dépenses budgétisées du mois', Valeur: totalBudget()},
+      {Métrique:'Dépenses réelles (lignes budgétisées)', Valeur: budgetedSpent()},
+      {Métrique:'Épargne du mois (revenus − dépenses budgétisées)', Valeur: savingsOfMonth().planned},
+      {Métrique:'Épargne consommée (dépenses inopinées)', Valeur: savingsOfMonth().consumed},
+      {Métrique:'Épargne placée dans le patrimoine', Valeur: savingsOfMonth().placed},
+      {Métrique:'Épargne restant à placer', Valeur: savingsOfMonth().rest},
       {Métrique:'Budget total', Valeur: totalBudget()},
       {Métrique:'Budget consommé (%)', Valeur: totalBudget()>0?Math.round(depenses/totalBudget()*100):0}
     ];
